@@ -1,41 +1,38 @@
 name: Deploy to Digital Ocean
-
 on:
   push:
-    branches:
-      - main   # Runs only when you push to main branch
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      # Step 1: Checkout your code
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v3
 
-      # Step 2: Log in to Docker Hub
-      - name: Log in to Docker Hub
+      - name: Docker Hub Login
         uses: docker/login-action@v2
         with:
-          username: gopi2005                   # Your Docker Hub username
-          password: ${{ secrets.DOCKER_HUB_PAT }}  # Secret with PAT
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PAT }}
 
-      # Step 3: Build and push Docker image
-      - name: Build and push Docker image
-        run: |
-          docker build -t gopi2005/cloudvault:latest .
-          docker push gopi2005/cloudvault:latest
+      - name: Build and Push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: gopi2005/cloudvault:${{ github.sha }}, gopi2005/cloudvault:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
 
-      # Step 4: SSH into droplet and deploy
-      - name: Deploy to Digital Ocean
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.9
         with:
           host: ${{ secrets.DO_SERVER_IP }}
           username: ${{ secrets.DO_USER }}
-          key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          key: ${{ secrets.DO_SSH_PRIVATE_KEY | trim }}
           script: |
-            docker pull gopi2005/cloudvault:latest
+            docker pull gopi2005/cloudvault:${{ github.sha }} || docker pull gopi2005/cloudvault:latest
             docker stop cloudvault-container || true
             docker rm cloudvault-container || true
-            docker run -d -p 80:5000 --name cloudvault-container gopi2005/cloudvault:latest
+            docker run -d -p 80:5000 --name cloudvault-container gopi2005/cloudvault:${{ github.sha }}
