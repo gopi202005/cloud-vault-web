@@ -1,5 +1,5 @@
 # React
-
+Test CI/CD update - 14 Aug 2025
 A modern React-based project utilizing the latest frontend technologies and tools for building responsive web applications.
 
 ## 🚀 Features
