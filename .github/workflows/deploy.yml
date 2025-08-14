@@ -10,6 +10,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Fixed login step
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -20,25 +21,19 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: ./Dockerfile
           push: true
           tags: |
-            gopi2005/cloudvault:${{ github.sha }}
-            gopi2005/cloudvault:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            your-dockerhub-username/your-app:${{ github.sha }}
+            your-dockerhub-username/your-app:latest
 
-      - name: Deploy to droplet
+      - name: Deploy to Digital Ocean
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.DO_SERVER_IP }}
           username: ${{ secrets.DO_USER }}
           key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
           script: |
-            docker pull gopi2005/cloudvault:${{ github.sha }} || docker pull gopi2005/cloudvault:latest
-            docker rm -f cloudvault-container || true
-            docker run -d \
-              --name cloudvault-container \
-              -p 80:80 \
-              --restart unless-stopped \
-              gopi2005/cloudvault:${{ github.sha }}
+            docker pull your-dockerhub-username/your-app:${{ github.sha }} || docker pull your-dockerhub-username/your-app:latest
+            docker stop your-container || true
+            docker rm your-container || true
+            docker run -d -p 80:80 --name your-container your-dockerhub-username/your-app:${{ github.sha }}
