@@ -1,4 +1,4 @@
-name: Deploy to Digital Ocean
+name: Deploy React to Digital Ocean
 on:
   push:
     branches: [main]
@@ -7,63 +7,30 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout code
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Debugging - Verify secrets exist (logs will show 'true' if secrets are set)
-      - name: Verify secrets
-        run: |
-          echo "DOCKER_HUB_USERNAME exists: ${{ secrets.DOCKER_HUB_USERNAME != '' }}"
-          echo "DO_SERVER_IP exists: ${{ secrets.DO_SERVER_IP != '' }}"
-
-      # Step 3: Login to Docker Hub (with explicit registry)
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PAT }}
-
-      # Step 4: Build and push Docker image (with cache and multi-platform support)
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Build and push
+      - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: |
             gopi2005/cloudvault:${{ github.sha }}
             gopi2005/cloudvault:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
-      # Step 5: Deploy to Digital Ocean droplet
-      - name: Deploy to Digital Ocean
+      - name: Deploy to Digital Ocean droplet
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.DO_SERVER_IP }}
           username: ${{ secrets.DO_USER }}
           key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
           script: |
-            # Pull the image (fallback to latest if SHA tag fails)
-            docker pull gopi2005/cloudvault:${{ github.sha }} || \
-              docker pull gopi2005/cloudvault:latest || \
-              { echo "Failed to pull image"; exit 1; }
-            
-            # Stop and remove old container (if exists)
+            docker pull gopi2005/cloudvault:${{ github.sha }} || docker pull gopi2005/cloudvault:latest
             docker rm -f cloudvault-container || true
-            
-            # Run new container with restart policy
             docker run -d \
               --name cloudvault-container \
+              -p 80:80 \  # Map host port 80 to container port 80 (Nginx)
               --restart unless-stopped \
-              -p 80:5000 \
               gopi2005/cloudvault:${{ github.sha }}
-
-      # Step 6: Post-deployment verification
-      - name: Verify deployment
-        run: |
-          echo "Deployment completed successfully at $(date)"
